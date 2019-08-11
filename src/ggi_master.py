@@ -4,7 +4,7 @@
 import rospy
 from std_msgs.msg import String, Bool, Float64
 from geometry_msgs.msg import Twist
-from ii_go_get_it.msg import LearnContent
+#from ii_go_get_it.msg import LearnContent
 
 class MimiControlClass():
     def __init__(self):
@@ -46,8 +46,7 @@ class NavigationClass():
         place_name = String()
         place_name = receive_msg
         print place_name
-        rospy.loginfo(" Memorize " + str(place_name.data))
-        self.mimi.ttsSpeak("Memorize " + str(place_name.data))
+        rospy.loginfo(" Memorize " + str(receive_msg))
         rospy.sleep(0.1)
         self.navigation_memorize_pub.publish(place_name)
         while self.navigation_result_flg == False and not rospy.is_shutdown():
@@ -55,8 +54,8 @@ class NavigationClass():
             rospy.loginfo(" Memorizing...")
         rospy.sleep(0.1)
         self.navigation_result_flg = False
-        rospy.loginfo(" Memorized " + str(place_name.data))
-        self.mimi.ttsSpeak("I memorized " + str(place_name.data))
+        rospy.loginfo(" Memorized " + str(receive_msg))
+        self.mimi.ttsSpeak("I memorized " + str(receive_msg))
         rospy.sleep(1.0)
 
     def movePlace(self, receive_msg):
@@ -96,7 +95,7 @@ class ManipulationClass():
         while not rospy.is_shutdown():
             request = String()
             request.data = receive_msg
-            rospy.sleep(0.1)
+            rospy.sleep(0.5)
             if target_topic == 'object_grasp':
                 self.object_grasp_request_pub.publish(request)
                 break
@@ -126,11 +125,15 @@ class ManipulationClass():
         while not rospy.is_shutdown():
             rospy.loginfo(" Start hand over")
             self.mimi.motorControl(6, 0.5)
+            rospy.sleep(0.2)
             self.mimi.ttsSpeak("Here you are")
             rospy.sleep(0.1)
             self.stringMessagePublish('change_pose', 'give')
-            rospy.sleep(1.0)
+            rospy.sleep(4.0)
             self.mimi.motorControl(6, 0.3)
+            rospy.sleep(1.0)
+            self.stringMessagePublish('change_pose', 'carry')
+            rospy.sleep(2.0)
             rospy.loginfo(" Finished hand over")
             break
 
@@ -273,12 +276,14 @@ class TestPhase():
     def listenOrder(self):
         rospy.loginfo(" Listening order...")
         self.mimi.motorControl(6, 0.5)
-        #rospy.sleep(0.1)
+        rospy.sleep(0.1)
         self.mimi.ttsSpeak(" Please give me a mission")
         self.stringMessagePublish('mission_listen', 'start')
         while not rospy.is_shutdown() and self.order_place == 'Null':
             rospy.loginfo(" Waiting for order")
             rospy.sleep(2.0)
+        rospy.sleep(1.0)
+        self.mimi.ttsSpeak("Roger")
         print self.order_place
         print self.order_object
 
@@ -288,7 +293,7 @@ class TestPhase():
             mission_state = 0
             while not rospy.is_shutdown() and not mission_state == 5:
                 if mission_state == 0:
-                   #self.listenOrder()
+                   self.listenOrder()
                    mission_state = 1
                 elif mission_state == 1:
                     self.navi.movePlace(self.order_place)
@@ -314,7 +319,7 @@ class TestPhase():
             self.mimi.ttsSpeak("Start TestPhase")
             #API起動・
             order_count = 1
-            while not rospy.is_shutdown() and not order_count == 4:#３回のチャレンジ
+            while not rospy.is_shutdown() and not order_count == 2:#３回のチャレンジ
                 print '-'*80
                 rospy.loginfo(" Mission number : " + str(order_count))
                 self.missionExecution()
@@ -336,7 +341,7 @@ class TestPhase():
 if __name__ == '__main__':
     rospy.init_node('ggi_master', anonymous = True)
     try:
-        state = 0
+        state = 1
         traning = TraningPhase()
         test = TestPhase()
         while not rospy.is_shutdown() and not state == 2:

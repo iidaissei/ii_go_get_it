@@ -21,7 +21,6 @@ class Navigation:
         #Subscriber
         rospy.Subscriber('/navigation/memorize_place', String, self.getMemorizePlaceCB)
         rospy.Subscriber('/navigation/move_place', String, self.getDestinationCB)
-        self.sub_tf  = rospy.Subscriber('/tf', TFMessage, self.getTfCB)
         rospy.Subscriber('/odom', Odometry, self.getOdomCB)
         #Service
         rospy.wait_for_service('move_base/clear_costmaps')
@@ -43,21 +42,14 @@ class Navigation:
     def getDestinationCB(self, receive_msg):
         self.destination = receive_msg.data
 
-    def getTfCB(self, receive_msg):
-        try:
-            if self.sub_tf.transforms[0].header.frame_id == 'odom':
-                self.tf_pose_x = receive_msg.transforms[0].transform.translation.x
-                self.tf_pose_y = receive_msg.transforms[0].transform.translation.y
-            self.sub_tf_flg = True
-        except IndexError:
-            pass
-
     def getOdomCB(self, receive_msg):#向きのみを購読
         try:
+            self.tf_pose_x = receive_msg.pose.pose.position.x
+            self.tf_pose_y = receive_msg.pose.pose.position.y
             self.odom_pose_w = receive_msg.pose.pose.orientation.w
             self.odom_pose_z = receive_msg.pose.pose.orientation.z
-            print 'w',self.tf_pose_w
-            print 'z',self.tf_pose_z
+            #print 'w',self.tf_pose_w
+            #print 'z',self.tf_pose_z
             self.sub_odom_flg = True
         except IndexError:
             pass
@@ -74,8 +66,13 @@ class Navigation:
                 return 0
 
     def setLocationList(self):#------------------------------------------------state 1
-        while not rospy.is_shutdown() and self.sub_tf_flg == False:
+        #while not rospy.is_shutdown() and self.sub_tf_flg == False:
+        #    rospy.sleep(0.1)
+        #self.sub_tf_flg = False
+        while not rospy.is_shutdown() and self.sub_odom_flg == False:
             rospy.sleep(0.1)
+        self.sub_odom_flg = False
+        rospy.sleep(1.0)
         self.location_pose_x = self.tf_pose_x
         self.location_pose_y = self.tf_pose_y
         self.location_pose_z = self.odom_pose_z
@@ -122,7 +119,6 @@ class Navigation:
         rospy.loginfo("Sended Goal")
         while not rospy.is_shutdown():
             num = ac.get_state()
-            print num
             if num == 1:
                 rospy.loginfo("Got out of the obstacle")
                 rospy.sleep(2.0)
