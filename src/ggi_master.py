@@ -4,7 +4,7 @@
 import rospy
 from std_msgs.msg import String, Bool, Float64
 from geometry_msgs.msg import Twist
-#from ii_go_get_it.msg import LearnContent
+from ii_go_get_it.msg import LearnContent
 
 class MimiControlClass():
     def __init__(self):
@@ -52,7 +52,6 @@ class NavigationClass():
         while self.navigation_result_flg == False and not rospy.is_shutdown():
             rospy.sleep(0.5)
             rospy.loginfo(" Memorizing...")
-        rospy.sleep(0.1)
         self.navigation_result_flg = False
         rospy.loginfo(" Memorized " + str(receive_msg))
         self.mimi.ttsSpeak("I memorized " + str(receive_msg))
@@ -64,16 +63,13 @@ class NavigationClass():
         place_name.data = receive_msg
         print place_name
         rospy.loginfo(" Move to " + str(place_name.data))
-        #self.mimi.ttsSpeak("I move to " + str(place_name.data))
         rospy.sleep(0.1)
         self.navigation_command_pub.publish(place_name)
         while self.navigation_result_flg == False and not rospy.is_shutdown():
             rospy.sleep(2.5)
             rospy.loginfo(" Moving...")
-        rospy.sleep(0.1)
         self.navigation_result_flg = False
         rospy.loginfo(" Arrived " + str(place_name.data))
-        #self.mimi.ttsSpeak("I arrived " + str(place_name.data))
         rospy.sleep(1.0)
 
 class ManipulationClass():

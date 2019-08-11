@@ -44,12 +44,10 @@ class Navigation:
 
     def getOdomCB(self, receive_msg):#向きのみを購読
         try:
-            self.tf_pose_x = receive_msg.pose.pose.position.x
-            self.tf_pose_y = receive_msg.pose.pose.position.y
+            self.odom_pose_x = receive_msg.pose.pose.position.x
+            self.odom_pose_y = receive_msg.pose.pose.position.y
             self.odom_pose_w = receive_msg.pose.pose.orientation.w
             self.odom_pose_z = receive_msg.pose.pose.orientation.z
-            #print 'w',self.tf_pose_w
-            #print 'z',self.tf_pose_z
             self.sub_odom_flg = True
         except IndexError:
             pass
@@ -66,25 +64,22 @@ class Navigation:
                 return 0
 
     def setLocationList(self):#------------------------------------------------state 1
-        #while not rospy.is_shutdown() and self.sub_tf_flg == False:
-        #    rospy.sleep(0.1)
-        #self.sub_tf_flg = False
         while not rospy.is_shutdown() and self.sub_odom_flg == False:
             rospy.sleep(0.1)
         self.sub_odom_flg = False
         rospy.sleep(1.0)
-        self.location_pose_x = self.tf_pose_x
-        self.location_pose_y = self.tf_pose_y
+        self.location_pose_x = self.odom_pose_x
+        self.location_pose_y = self.odom_pose_y
         self.location_pose_z = self.odom_pose_z
         self.location_pose_w = self.odom_pose_w
         self.location_list.append([self.location_name, self.location_pose_x, self.location_pose_y, self.location_pose_z, self.location_pose_w])
-        rospy.loginfo("Add *" + self.location_name + "* to the LocationList")
+        rospy.loginfo("Add * " + self.location_name + " * to the LocationList")
         self.location_name = 'Null'
         result = Bool()
         result.data = True
         self.navigation_result_pub.publish(result)
         rospy.loginfo("Published result")
-        rospy.sleep(2.0)
+        rospy.sleep(1.0)
         result = False
         self.navigation_result_pub.publish(result)
         return 0
