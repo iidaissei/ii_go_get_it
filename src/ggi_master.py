@@ -79,13 +79,18 @@ class ManipulationClass():
         self.change_pose_request_pub = rospy.Publisher('/arm/changing_pose_req',String,queue_size=1)
         #Subscriber
         self.object_grasp_res_sub = rospy.Subscriber('/object/grasp_res', Bool, self.getObjectGraspResultCB)
+        self.changing_pose_res_sub = rospy.Subscriber('/arm/change_pose_res', Bool, self.getChangingPoseCB)
 
-        self.object_grasp_result_flg = False    
+        self.object_grasp_result_flg = False
+        self.changing_pose_res_flg = False
         self.object_name = String()
         self.mimi = MimiControlClass()
 
     def getObjectGraspResultCB(self, result_msg):
         self.object_grasp_result_flg = result_msg.data
+
+    def getChangingPoseCB(self, receive_msg):
+        self.changing_pose_res_flg = receive_msg.data
 
     def stringMessagePublish(self, target_topic, receive_msg):#String型専用Publisher
         while not rospy.is_shutdown():
@@ -100,19 +105,19 @@ class ManipulationClass():
                 break
         rospy.loginfo(" Publeshed " + target_topic + "_request " + receive_msg)
 
-    def grasp(self, receive_msg):
+    def grasp(self):
         while not rospy.is_shutdown():
             rospy.loginfo("Start grasp")
+            rospy.sleep(0.1)
             self.mimi.motorControl(6, -0.07)
             rospy.sleep(0.1)
-            rospy.loginfo("Grasp " + receive_msg)
-            rospy.sleep(0.1)
-            self.stringMessagePublish('object_grasp', 'receive_msg')
+            self.stringMessagePublish('object_grasp', 'object')
             while not rospy.is_shutdown() and self.object_grasp_result_flg == False:
                 rospy.loginfo(" Waiting for grasping...")
                 rospy.sleep(2.5)
             self.object_grasp_result_flg = False
-            rospy.loginfo("Grasped " + receive_msg)
+            rospy.loginfo(" Grasped")
+            rospy.sleep(0.1)
             self.mimi.motorControl(6, 0.3)
             rospy.loginfo(" Finished grasp")
             break
@@ -125,10 +130,11 @@ class ManipulationClass():
             self.mimi.ttsSpeak("Here you are")
             rospy.sleep(0.1)
             self.stringMessagePublish('change_pose', 'give')
-            rospy.sleep(4.0)
-            self.mimi.motorControl(6, 0.3)
+            while not rospy.is_shutdown() and self.changing_pose_res_flg == False:
+                rospy.sleep(1.0)
+            self.changing_pose_res_flg = True
             rospy.sleep(1.0)
-            self.stringMessagePublish('change_pose', 'carry')
+            self.mimi.motorControl(6, 0.3)
             rospy.sleep(2.0)
             rospy.loginfo(" Finished hand over")
             break
@@ -138,7 +144,7 @@ class TraningPhase():
     def __init__(self):
         #Publisher
         self.traning_request_pub = rospy.Publisher('/ggi/traning_request', String ,queue_size = 1)#traning用APIの起動・停止
-        self.learn_request_pub = rospy.Publisher('/ggi/learn_request', String, queue_size = 1)#学習用APIの起動・停止
+        self.learn_request_pub = rospy.Publisher('/ggi/learn_request', LearnContent, queue_size = 1)#学習用APIの起動・停止
         self.follow_request_pub = rospy.Publisher('/chase/request', String, queue_size = 1)#followの開始・終了
         #Subscriber
         rospy.Subscriber('/ggi/voice_cmd', String, self.getVoiceCmdCB)
@@ -156,7 +162,7 @@ class TraningPhase():
 
     def getLearnContentCB(self, receive_msg):
         self.place_name = receive_msg.data
-        self.object_name = receive_msg.data
+        #self.object_name = receive_msg.obj
         self.learn_content_flg = True
 
     def stringMessagePublish(self, target_topic, receive_msg):#String型専用Publisher
@@ -184,7 +190,6 @@ class TraningPhase():
             self.learn_content_flg = False
             rospy.sleep(1.0)
             self.navi.setPlace(self.place_name)
-            self.stringMessagePublish('learn', 'stop')#学習用APIの停止
             rospy.sleep(1.0)
             break
 
@@ -235,7 +240,7 @@ class TraningPhase():
                 rospy.sleep(0.1)
             rospy.loginfo(" Finished TraningPhase")
             self.mimi.ttsSpeak("Finished TraningPhase")
-            rospy.sleep(5.0)
+            rospy.sleep(5.0)#--------------------------------------------------------当日判断する（秒数変更） 
             return 1
         except rospy.ROSInterruptException:
             rospy.loginfo(" Interrupted")
@@ -250,14 +255,12 @@ class TestPhase():
         rospy.Subscriber('/ggi/order_content', String, self.getOrderContentCB)
 
         self.order_place = 'Null'
-        self.order_object = 'Null'
         self.mimi = MimiControlClass()
         self.navi = NavigationClass()
         self.mani = ManipulationClass()
 
     def getOrderContentCB(self, receive_msg):
         self.order_place = receive_msg.data
-        self.order_object = receive_msg.data
 
     def stringMessagePublish(self, target_topic, receive_msg):#String型専用Publisher
         while not rospy.is_shutdown():
@@ -278,6 +281,7 @@ class TestPhase():
         while not rospy.is_shutdown() and self.order_place == 'Null':
             rospy.loginfo(" Waiting for order")
             rospy.sleep(2.0)
+        self.order_place = 'Null'
         rospy.sleep(1.0)
         self.mimi.ttsSpeak("Roger")
         print self.order_place
@@ -295,7 +299,7 @@ class TestPhase():
                     self.navi.movePlace(self.order_place)
                     mission_state = 2
                 elif mission_state == 2:
-                    self.mani.grasp(self.order_object)
+                    self.mani.grasp()
                     mission_state = 3
                 elif mission_state == 3:
                     self.navi.movePlace('operator')
@@ -333,11 +337,9 @@ class TestPhase():
             rospy.loginfo(" Interrupted")
             pass
 
-
-if __name__ == '__main__':
-    rospy.init_node('ggi_master', anonymous = True)
+def main():
     try:
-        state = 1
+        state = 0
         traning = TraningPhase()
         test = TestPhase()
         while not rospy.is_shutdown() and not state == 2:
@@ -348,3 +350,7 @@ if __name__ == '__main__':
     except rospy.ROSInterruptException:
         rospy.loginfo(" Interrupted")
         pass
+
+if __name__ == '__main__':
+    rospy.init_node('ggi_master', anonymous = True)
+    main()
