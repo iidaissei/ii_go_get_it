@@ -144,7 +144,7 @@ class TraningPhase():
     def __init__(self):
         #Publisher
         self.traning_request_pub = rospy.Publisher('/ggi/traning_request', String ,queue_size = 1)#traning用APIの起動・停止
-        self.learn_request_pub = rospy.Publisher('/ggi/learn_request', LearnContent, queue_size = 1)#学習用APIの起動・停止
+        self.learn_request_pub = rospy.Publisher('/ggi/learn_request', String, queue_size = 1)#学習用APIの起動・停止
         self.follow_request_pub = rospy.Publisher('/chase/request', String, queue_size = 1)#followの開始・終了
         #Subscriber
         rospy.Subscriber('/ggi/voice_cmd', String, self.getVoiceCmdCB)
