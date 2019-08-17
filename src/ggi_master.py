@@ -125,6 +125,7 @@ class ManipulationClass():
     def handOver(self):#objectを手渡す
         while not rospy.is_shutdown():
             rospy.loginfo(" Start hand over")
+            rospy.sleep(0.1)
             self.mimi.motorControl(6, 0.5)
             rospy.sleep(0.2)
             self.mimi.ttsSpeak("Here you are")
@@ -181,6 +182,29 @@ class TraningPhase():
                 break
         rospy.loginfo(" Publeshed " + target_topic + "_request " + receive_msg)
 
+    def doorOpenStart(self):
+        try:
+            while not rospy.is_shutdown() and self.mimi.front_laser_dist == 999.9:
+                rospy.sleep(1.0)
+            initial_distance = self.mimi.front_laser_dist
+            print initial_distance
+            self.mimi.ttsSpeak("Please open the door")
+            while not rospy.is_shutdown() and self.mimi.front_laser_dist <= initial_distance + 0.10:
+                rospy.loginfo(" Waiting for door open")
+                rospy.sleep(2.0)
+            rospy.sleep(2.0)
+            self.mimi.ttsSpeak("Thank you")
+            rospy.sleep(0.1)
+            for i in range(12):
+                self.mimi.linearControl(0.3)#linear0.3を15回で80cm前進
+                rospy.sleep(0.2)
+            rospy.sleep(0.5)
+            rospy.loginfo(" Enter the room")
+        except rospy.ROSInterruptException:
+            rospy.loginfo(" Interrupted")
+            pass
+
+
     def learn(self):#場所のみ記憶させる仕様
         while not rospy.is_shutdown():
             self.stringMessagePublish('learn', 'start')#学習用APIの起動
@@ -195,6 +219,7 @@ class TraningPhase():
 
     def traning(self):
         try:
+            rospy.sleep(0.1)
             self.stringMessagePublish('traning', 'start')
             rospy.sleep(1.0)
             while not rospy.is_shutdown() and not self.voice_cmd == 'finish_traning':
@@ -211,7 +236,7 @@ class TraningPhase():
                     self.voice_cmd = 'Null'
                 elif self.voice_cmd == 'start_learning':#------------>学習開始
                     rospy.loginfo(" Start learning")
-                    self.mimi.ttsSpeak("Please tell me")
+                    #self.mimi.ttsSpeak("Please tell me")
                     self.learn()
                     self.mimi.ttsSpeak("Learning is over")
                     self.voice_cmd = 'Null'
@@ -232,7 +257,9 @@ class TraningPhase():
             rospy.loginfo(" Start Go Get It")
             rospy.sleep(0.3)
             self.mimi.motorControl(6, 0.3)
-            rospy.sleep(0.5)
+            rospy.sleep(0.1)
+            self.doorOpenStart()
+            rospy.sleep(0.1)
             rospy.loginfo(" Start TraningPhase")
             self.mimi.ttsSpeak("Start TraningPhase")
             while not rospy.is_shutdown() and self.phase_change_flg == False:
@@ -274,9 +301,10 @@ class TestPhase():
 
     def listenOrder(self):
         rospy.loginfo(" Listening order...")
+        rospy.sleep(0.1)
         self.mimi.motorControl(6, 0.5)
         rospy.sleep(0.1)
-        self.mimi.ttsSpeak(" Please give me a mission")
+        #self.mimi.ttsSpeak(" Please give me a mission")
         self.stringMessagePublish('mission_listen', 'start')
         while not rospy.is_shutdown() and self.order_place == 'Null':
             rospy.loginfo(" Waiting for order")
