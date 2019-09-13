@@ -4,6 +4,7 @@
 import rospy
 from std_msgs.msg import String, Bool, Float64
 from geometry_msgs.msg import Twist
+from sensor_msgs.msg import LaserScan
 from ii_go_get_it.msg import LearnContent
 
 class MimiControlClass():
@@ -12,6 +13,45 @@ class MimiControlClass():
         self.cmd_vel_pub = rospy.Publisher('/cmd_vel_mux/input/teleop', Twist, queue_size = 1)
         self.m6_pub = rospy.Publisher('/m6_controller/command', Float64, queue_size = 1)
         self.tts_pub = rospy.Publisher('/tts', String, queue_size = 1)
+        #Subscriber
+        self.laser_sub = rospy.Subscriber('/scan', LaserScan, self.getLaserCB)
+ 
+        self.min_laser_dist = 999.9
+        self.front_laser_dist = 999.9
+
+    def getLaserCB(self, laser_scan):
+        self.laser_dist = laser_scan.ranges
+        self.min_laser_dist = min(laser_scan.ranges[180:540])
+        self.front_laser_dist = laser_scan.ranges[359]
+
+    def linearControl(self, linear_num):
+        twist_cmd = Twist()
+        twist_cmd.linear.x = linear_num
+        self.cmd_vel_pub.publish(twist_cmd)
+        twist_cmd.linear.x = 0
+
+    def angularControl(self, angular_num):
+        twist_cmd = Twist()
+        twist_cmd.angular.z = angular_num
+        self.cmd_vel_pub.publish(twist_cmd)
+        twist_cmd.angular.z = 0
+
+    def turn(self, muki):
+        twist_cmd = Twist()
+        if muki == 'right':
+            twist_cmd.angular.z = -1.0
+        elif muki == 'left':
+            twist_cmd.angular.z = 1.0
+        elif muki == 'back':
+            twist_cmd.linear.x = -0.3
+        rospy.sleep(0.1)
+        for i in range(6):
+            self.cmd_vel_pub.publish(twist_cmd)
+            rospy.sleep(0.3)
+        twist_cmd.angular.z = 0.0
+        twist_cmd.linear.x =  0.0
+        rospy.sleep(0.1)
+        self.cmd_vel_pub.publish(twist_cmd)
 
     def motorControl(self, motor_name, value):
         if motor_name == 6:
@@ -144,7 +184,7 @@ class ManipulationClass():
 class TraningPhase():
     def __init__(self):
         #Publisher
-        self.traning_request_pub = rospy.Publisher('/ggi/traning_request', String ,queue_size = 1)#traning用APIの起動・停止
+        self.traning_request_pub = rospy.Publisher('/ggi/training_request', String ,queue_size = 1)#traning用APIの起動・停止
         self.learn_request_pub = rospy.Publisher('/ggi/learn_request', String, queue_size = 1)#学習用APIの起動・停止
         self.follow_request_pub = rospy.Publisher('/chase/request', String, queue_size = 1)#followの開始・終了
         #Subscriber
@@ -219,27 +259,52 @@ class TraningPhase():
 
     def traning(self):
         try:
-            rospy.sleep(0.1)
-            self.stringMessagePublish('traning', 'start')
             rospy.sleep(1.0)
-            while not rospy.is_shutdown() and not self.voice_cmd == 'finish_traning':
-                if self.voice_cmd == 'follow_me':#-------------------->follow開始
+            self.stringMessagePublish('traning', 'start')
+            self.traning_request_pub.publish('start')
+            rospy.sleep(1.0)
+            while not rospy.is_shutdown() and not self.voice_cmd == 'finish traning':
+                if self.voice_cmd == 'follow me':#-------------------->follow開始
                     rospy.sleep(0.5)
                     self.stringMessagePublish('follow', 'start')
                     rospy.loginfo(" Start following")
-                    self.mimi.ttsSpeak("I'll follow you")
+                    self.mimi.ttsSpeak("follow you")
                     self.voice_cmd = 'Null'
-                elif self.voice_cmd == 'stop_follow':#--------------->follow終了
+                    self.traning_request_pub.publish('start')
+                elif self.voice_cmd == 'stop follow':#--------------->follow終了
                     self.stringMessagePublish('follow', 'stop')
-                    rospy.loginfo(" Stop following")
+                    rospy.loginfo(" Roger!")
                     self.mimi.ttsSpeak("Stop following")
                     self.voice_cmd = 'Null'
-                elif self.voice_cmd == 'start_learning':#------------>学習開始
+                    self.traning_request_pub.publish('start')
+                elif self.voice_cmd == 'start learning':#------------>学習開始
                     rospy.loginfo(" Start learning")
                     #self.mimi.ttsSpeak("Please tell me")
                     self.learn()
                     self.mimi.ttsSpeak("Learning is over")
                     self.voice_cmd = 'Null'
+                    self.traning_request_pub.publish('start')
+                elif self.voice_cmd == 'turn right':#--------------->Turn Right
+                    rospy.loginfo(" Turn Right")
+                    self.mimi.ttsSpeak("Roger")
+                    self.mimi.turn('right')
+                    rospy.sleep(0.1)
+                    self.voice_cmd = 'Null'
+                    self.traning_request_pub.publish('start')
+                elif self.voice_cmd == 'turn left':#---------------->Turn Left
+                    rospy.loginfo(" Turn Left")
+                    self.mimi.ttsSpeak("Roger")
+                    self.mimi.turn('left')
+                    rospy.sleep(0.1)
+                    self.voice_cmd = 'Null'
+                    self.traning_request_pub.publish('start')
+                elif self.voice_cmd == 'go back':#------------------>Go Back
+                    rospy.loginfo(" Go Back")
+                    self.mimi.ttsSpeak("Roger")
+                    self.mimi.turn('back')
+                    rospy.sleep(0.1)
+                    self.voice_cmd = 'Null'
+                    self.traning_request_pub.publish('start')
                 else:
                     rospy.loginfo(" * Waiting for voice_cmd *")
                     rospy.sleep(1.0)
